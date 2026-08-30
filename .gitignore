@@ -1,0 +1,8 @@
+# The two sub-repos have their own git histories and are committed to separately.
+# They must be ignored here — otherwise git records them as gitlinks with no
+# submodule config, which breaks clones.
+fengshui-shifu-api/
+fengshui-shifu-ui/
+
+.ruby-lsp/
+.DS_Store
