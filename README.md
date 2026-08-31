@@ -54,6 +54,7 @@ In production that value is baked in at build time by CI, not read at runtime.
 | Frontend | https://app.fengshui-shifu.com |
 | API | https://api.fengshui-shifu.com |
 | Health check | `curl -i https://api.fengshui-shifu.com/api/v1/health` |
+| Architecture | [`docs/infrastructure.md`](docs/infrastructure.md) — topology, load-bearing config, operating cost |
 
 **If the site is broken, start with that health check.** A CORS error in the
 browser console is usually *not* a CORS problem — when the load balancer returns
@@ -96,6 +97,7 @@ copied here.
 | API/UI contract | `fengshui-shifu-ui/src/services/api.ts` — hand-mirrors the API response; **update both sides together** |
 | All UI state and screens | `fengshui-shifu-ui/App.tsx` (single component) |
 | Colors and styles | `fengshui-shifu-ui/src/styles/` — add to the palette, never inline hex |
+| AWS topology, config and cost | `docs/infrastructure.md` |
 | Production debugging | `fengshui-shifu-api/README.md` |
 | Conventions and traps | `CLAUDE.md` |
 
