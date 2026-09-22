@@ -27,12 +27,20 @@ with no submodule config, which breaks clones.
 Always run git commands from inside the relevant sub-repo. Committing "the
 project" is never a single operation.
 
-| Repo | Stack | Deploys to |
-|---|---|---|
-| `fengshui-shifu-api` | Rails 8, API-only, Ruby 3.3, RSpec | ECR → ECS Fargate behind an ALB |
-| `fengshui-shifu-ui` | Expo / React Native Web, TypeScript | S3 + CloudFront |
+| Repo | Stack | Deploys to (today) | Target |
+|---|---|---|---|
+| `fengshui-shifu-api` | Rails 8, API-only, Ruby 3.3, RSpec | ECR → ECS Fargate behind an ALB | Render Web Service (Docker) |
+| `fengshui-shifu-ui` | Expo / React Native Web, TypeScript | S3 + CloudFront | Render Static Site |
 
 Both deploy from `main` via GitHub Actions.
+
+**Moving off AWS to Render.** Seven hand-configured AWS services, none of them
+defined in code, once produced a weeks-long outage from two target groups
+silently disagreeing. Render collapses that to two services and a `render.yaml`
+per repo, at roughly a third of the cost. The migration is planned but **not
+started** — production is still entirely on AWS. See
+[`docs/render-migration.md`](docs/render-migration.md) for the step-by-step,
+including AWS teardown.
 
 ## Running it locally
 
@@ -55,6 +63,7 @@ In production that value is baked in at build time by CI, not read at runtime.
 | API | https://api.fengshui-shifu.com |
 | Health check | `curl -i https://api.fengshui-shifu.com/api/v1/health` |
 | Architecture | [`docs/infrastructure.md`](docs/infrastructure.md) — topology, load-bearing config, operating cost |
+| Migration | [`docs/render-migration.md`](docs/render-migration.md) — AWS → Render runbook and teardown |
 
 **If the site is broken, start with that health check.** A CORS error in the
 browser console is usually *not* a CORS problem — when the load balancer returns
@@ -98,6 +107,7 @@ copied here.
 | All UI state and screens | `fengshui-shifu-ui/App.tsx` (single component) |
 | Colors and styles | `fengshui-shifu-ui/src/styles/` — add to the palette, never inline hex |
 | AWS topology, config and cost | `docs/infrastructure.md` |
+| Migrating to Render, and tearing AWS down | `docs/render-migration.md` |
 | Production debugging | `fengshui-shifu-api/README.md` |
 | Conventions and traps | `CLAUDE.md` |
 

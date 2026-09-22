@@ -8,6 +8,11 @@ describe the whole picture.
 Every figure here was read from the AWS API — see
 [Regenerating this document](#regenerating-this-document) to refresh it.
 
+> **This describes the setup being retired.** The project is moving to Render —
+> see [`render-migration.md`](render-migration.md). Until DNS is cut over, what
+> follows is still exactly what is live, and it is the only record of how these
+> resources were built. Delete this file only after AWS teardown is complete.
+
 ## Why this file exists
 
 None of the production infrastructure is defined in code. There is no
