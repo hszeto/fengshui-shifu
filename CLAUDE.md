@@ -118,62 +118,33 @@ All of it lives in `app/services/bazi_calculator_service.rb`, with reference tab
 
 ## Deployment
 
-Both repos deploy from `main` via GitHub Actions to AWS.
+Both repos deploy from `main` via GitHub Actions to Render.
 
-- **API** (`.github/workflows/deploy.yml`): RSpec against a Postgres service container, then Docker build → ECR (`fengshui-shifu-api`) → `aws ecs update-service` on cluster `fengshui-shifu-cluster`, service `fengshui-shifu-api-task`, region `us-east-1`.
-- **UI**: `expo export -p web` with `EXPO_PUBLIC_API_URL=https://api.fengshui-shifu.com/api/v1`, then `s3 sync dist/` and a CloudFront invalidation.
+- **API** (`.github/workflows/deploy.yml`): RSpec against a Postgres service container, then triggers a Render deploy via webhook.
+- **UI**: Render auto-deploys on push — `expo export -p web` with `EXPO_PUBLIC_API_URL=https://api.fengshui-shifu.com/api/v1`.
+
+*Originally deployed to AWS (ECR/ECS/CloudFront) from Aug–Sept 2026. Migrated to Render for cost and simplicity. See [`docs/aws-infrastructure-legacy.md`](docs/aws-infrastructure-legacy.md) for the historical AWS setup.*
 
 ### Port 3000 everywhere — do not "fix" this to 80
 
 **The container must listen on 3000.** The production `Dockerfile` creates a
 non-root `rails` user (`USER rails:rails`) before starting Puma, and a non-root
 process cannot bind a privileged port (<1024). Setting `-p 80` makes Puma die at
-boot with `Permission denied - bind(2) for "0.0.0.0" port 80 (Errno::EACCES)`,
-the container exits, and ECS crash-loops it.
+boot with `Permission denied - bind(2) for "0.0.0.0" port 80 (Errno::EACCES)`.
 
-The commit history contains **five** commits flipping this between 80 and 3000,
-each justified as "matching the target group". Every 80 version was incapable of
-running. The trap is that the ALB's *public* port and the *container* port are
-independent: users reach the ALB on 443/80, and the ALB forwards to whatever
-port the target group names. Nothing requires the container to be on 80.
+The commit history contains **five** commits flipping this between 80 and 3000.
+Every 80 version was incapable of running. This constraint is not platform-specific
+— it's the Unix permission model. Render sets `PORT=3000` as an env var; the
+Dockerfile is untouched.
 
-Three things must all say **3000**, and they are in three different places:
-
-1. `Dockerfile` — `CMD [... "-p", "3000"]` and `EXPOSE 3000`
-2. ECS task definition — `containerPort` (and `hostPort`) on the container
-3. ALB target group — the group's `Port`, plus the ECS **service's**
-   `loadBalancers[].containerPort`
-
-Item 3 is two separate settings and they can disagree. In Aug 2026 the ALB
-listener forwarded to a target group named `fengshui-api-targets-p80` while the
-ECS service registered its tasks into a *different* group, `fengshui-api-targets`
-— so the balancer health-checked stale hand-registered IPs and returned 502/504
-for weeks while ECS reported "steady state". **Verify the listener and the ECS
-service point at the same target group**, not just that the ports match.
-
-Two related settings worth knowing:
-
-- The service's `healthCheckGracePeriodSeconds` must be non-zero (currently 120).
-  At 0, ELB health checks start before Rails finishes booting and ECS kills the
-  task mid-startup, forever.
-- The deployment circuit breaker has `rollback: true`. That is correct in
-  general, but when the *previous* task definition is also broken it will
-  reinstate the broken one and mask the real failure. Disable it temporarily
-  when debugging a deploy that will not stabilise.
-
-`docker-compose.yml` also runs the dev server on 3000, so dev and prod now agree.
+`docker-compose.yml` also runs the dev server on 3000, so dev and prod agree.
 
 ### CORS
 
 Wide open by design — `origins '*'` in `config/initializers/cors.rb`, to support
-mobile clients. A `SECRET_KEY_BASE` and an `ALLOWED_ORIGINS` env var are set on
-the ECS task definition; `ALLOWED_ORIGINS` is **not read by any code** and its
-value does not match the real frontend origin, so wiring it up would break the
-site until corrected.
+mobile clients. The UI and API are on separate hostnames (Render services), so
+requests are cross-origin; CORS permissiveness makes that work.
 
-**A browser CORS error against this API is usually not a CORS problem.** When the
-ALB returns its own 502/503/504 error page, that page carries no
-`Access-Control-Allow-Origin` header, and Chrome reports the only thing it can
-see: a failed preflight. Always run
-`curl -i https://api.fengshui-shifu.com/api/v1/health` first — if it is not a
-200, the backend is down and `cors.rb` is a red herring.
+If a request to the API fails, always run
+`curl -i https://api.fengshui-shifu.com/api/v1/health` first — if it's not a 200,
+the backend is down.
